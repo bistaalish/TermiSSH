@@ -22,24 +22,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev libssl-dev libudev-dev pkg-config tar xz-utils
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install Frontend Dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build Tauri App & Debian Bundle
-        run: pnpm tauri build
+        run: pnpm tauri build --bundles deb
 
       - name: Package Universal Linux Tarball (.tar.xz)
         run: bash scripts/package-tar-xz.sh
@@ -56,12 +56,12 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: TermiSSH ${{ github.ref_name }}
           body_path: README.md
           draft: false
           prerelease: false
           files: |
-            release-dist/TermiSSH-*.tar.xz
-            release-dist/TermiSSH_*_amd64.deb
-            release-dist/SHA256SUMS.txt
+            release-dist/*
