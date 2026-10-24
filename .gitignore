@@ -1,0 +1,86 @@
+# ==============================================================================
+# TermiSSH - .gitignore
+# ==============================================================================
+
+# Node.js & Package Managers
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Frontend Build Outputs
+dist/
+dist-ssr/
+*.local
+
+# Rust & Cargo Build Artifacts
+target/
+src-tauri/target/
+**/*.rs.bk
+*.pdb
+
+# Tauri Build Artifacts & Generated Schemas
+src-tauri/gen/schemas
+src-tauri/target/
+
+# Packaged Release Archives & Bundles
+*.deb
+*.tar.xz
+*.tar.gz
+*.rpm
+*.AppImage
+*.snap
+*.flatpak
+
+# Local Databases, WAL Journals & Test Databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+termish_test_db_*
+
+# Secrets, Credentials & Local Environment Files
+.env
+.env.*.local
+.env.local
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Runtime Logs & PIDs
+logs/
+*.log
+*.pid
+
+# IDE & Code Editor Configurations
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Operating System Metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary Files & User Session Notes
+tommorow.txt
+tmp/
+*.tmp
