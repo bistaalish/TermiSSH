@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { HostConfig, FileEntry } from '../types';
 import { api } from '../services/api';
 import { FileEditorModal } from './FileEditorModal';
@@ -18,6 +18,8 @@ import {
   Loader2,
   AlertCircle,
   FileText,
+  Search,
+  X,
 } from 'lucide-react';
 
 interface SFTPManagerProps {
@@ -51,6 +53,23 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
   // Transfer State
   const [transferring, setTransferring] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  // Search filter states
+  const [localSearch, setLocalSearch] = useState<string>('');
+  const [remoteSearch, setRemoteSearch] = useState<string>('');
+
+  // Filtered files
+  const filteredLocalFiles = useMemo(() => {
+    if (!localSearch.trim()) return localFiles;
+    const q = localSearch.trim().toLowerCase();
+    return localFiles.filter((f) => f.name.toLowerCase().includes(q));
+  }, [localFiles, localSearch]);
+
+  const filteredRemoteFiles = useMemo(() => {
+    if (!remoteSearch.trim()) return remoteFiles;
+    const q = remoteSearch.trim().toLowerCase();
+    return remoteFiles.filter((f) => f.name.toLowerCase().includes(q));
+  }, [remoteFiles, remoteSearch]);
 
   // Format bytes
   const formatSize = (bytes: number): string => {
@@ -122,6 +141,7 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
     const parts = localPath.split('/').filter(Boolean);
     parts.pop();
     const parent = '/' + parts.join('/');
+    setLocalSearch('');
     loadLocalFiles(parent || '/');
   };
 
@@ -130,6 +150,7 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
     const parts = remotePath.split('/').filter(Boolean);
     parts.pop();
     const parent = '/' + parts.join('/');
+    setRemoteSearch('');
     loadRemoteFiles(currentHostId, parent || '/');
   };
 
@@ -280,11 +301,52 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
             </div>
           </div>
 
+          {/* Search Bar */}
+          <div className="px-3 py-2 bg-[#141415] border-b border-[#2a2a2a] flex items-center">
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#605e5e]" />
+              <input
+                type="text"
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setLocalSearch('');
+                }}
+                placeholder="Search local files..."
+                className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#2a2a2a] text-xs text-[#f4f4f5] placeholder-[#605e5e] focus:outline-none focus:border-[#363636] transition-colors"
+              />
+              {localSearch && (
+                <button
+                  onClick={() => setLocalSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-[#605e5e] hover:text-[#f4f4f5] hover:bg-[#222223] cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Files List */}
           <div className="flex-1 overflow-y-auto">
             {localLoading ? (
               <div className="h-48 flex items-center justify-center text-[#605e5e]">
                 <Loader2 size={24} className="animate-spin text-[#938a87]" />
+              </div>
+            ) : localFiles.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-[#605e5e] text-xs">
+                Empty directory
+              </div>
+            ) : filteredLocalFiles.length === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center text-[#605e5e] text-center p-4">
+                <Search size={22} className="text-[#363636] mb-2" />
+                <p className="text-xs text-[#938a87]">No files matching "{localSearch}"</p>
+                <button
+                  onClick={() => setLocalSearch('')}
+                  className="mt-2 text-[11px] text-[#f4f4f5] hover:underline cursor-pointer"
+                >
+                  Clear filter
+                </button>
               </div>
             ) : (
               <table className="w-full text-left text-xs border-collapse">
@@ -297,14 +359,17 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#19191a]">
-                  {localFiles.map((file) => {
+                  {filteredLocalFiles.map((file) => {
                     const isSelected = localSelected?.path === file.path;
                     return (
                       <tr
                         key={file.path}
                         onClick={() => setLocalSelected(file)}
                         onDoubleClick={() => {
-                          if (file.isDir) loadLocalFiles(file.path);
+                          if (file.isDir) {
+                            setLocalSearch('');
+                            loadLocalFiles(file.path);
+                          }
                         }}
                         className={`cursor-pointer transition-colors ${
                           isSelected
@@ -340,7 +405,11 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
           {/* Action Bar */}
           <div className="p-2.5 bg-[#19191a] border-t border-[#2a2a2a] flex items-center justify-between text-xs">
             <span className="text-[#605e5e] text-[11px]">
-              {localSelected ? `Selected: ${localSelected.name}` : `${localFiles.length} items`}
+              {localSelected
+                ? `Selected: ${localSelected.name} (${formatSize(localSelected.size)})`
+                : localSearch
+                ? `Showing ${filteredLocalFiles.length} of ${localFiles.length} items`
+                : `${localFiles.length} items`}
             </span>
             <button
               onClick={handleUpload}
@@ -391,6 +460,32 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
             </div>
           </div>
 
+          {/* Search Bar */}
+          <div className="px-3 py-2 bg-[#141415] border-b border-[#2a2a2a] flex items-center">
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#605e5e]" />
+              <input
+                type="text"
+                value={remoteSearch}
+                onChange={(e) => setRemoteSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setRemoteSearch('');
+                }}
+                placeholder="Search remote files..."
+                className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#2a2a2a] text-xs text-[#f4f4f5] placeholder-[#605e5e] focus:outline-none focus:border-[#363636] transition-colors"
+              />
+              {remoteSearch && (
+                <button
+                  onClick={() => setRemoteSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-[#605e5e] hover:text-[#f4f4f5] hover:bg-[#222223] cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Files List */}
           <div className="flex-1 overflow-y-auto">
             {remoteLoading ? (
@@ -408,6 +503,21 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
                   Retry Connection
                 </button>
               </div>
+            ) : remoteFiles.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-[#605e5e] text-xs">
+                Empty directory
+              </div>
+            ) : filteredRemoteFiles.length === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center text-[#605e5e] text-center p-4">
+                <Search size={22} className="text-[#363636] mb-2" />
+                <p className="text-xs text-[#938a87]">No files matching "{remoteSearch}"</p>
+                <button
+                  onClick={() => setRemoteSearch('')}
+                  className="mt-2 text-[11px] text-[#f4f4f5] hover:underline cursor-pointer"
+                >
+                  Clear filter
+                </button>
+              </div>
             ) : (
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-[#19191a] text-[#938a87] text-[11px] sticky top-0 border-b border-[#2a2a2a]">
@@ -419,7 +529,7 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#19191a]">
-                  {remoteFiles.map((file) => {
+                  {filteredRemoteFiles.map((file) => {
                     const isSelected = remoteSelected?.path === file.path;
                     return (
                       <tr
@@ -427,6 +537,7 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
                         onClick={() => setRemoteSelected(file)}
                         onDoubleClick={() => {
                           if (file.isDir) {
+                            setRemoteSearch('');
                             loadRemoteFiles(currentHostId, file.path);
                           } else {
                             setEditorFile({ path: file.path, name: file.name });
@@ -466,6 +577,13 @@ export const SFTPManager: React.FC<SFTPManagerProps> = ({ hosts, selectedHostId 
           {/* Action Bar */}
           <div className="p-2.5 bg-[#19191a] border-t border-[#2a2a2a] flex items-center justify-between text-xs">
             <div className="flex items-center space-x-2">
+              <span className="text-[#605e5e] text-[11px] mr-2">
+                {remoteSelected
+                  ? `Selected: ${remoteSelected.name} (${formatSize(remoteSelected.size)})`
+                  : remoteSearch
+                  ? `Showing ${filteredRemoteFiles.length} of ${remoteFiles.length} items`
+                  : `${remoteFiles.length} items`}
+              </span>
               {remoteSelected && !remoteSelected.isDir && (
                 <button
                   onClick={() => setEditorFile({ path: remoteSelected.path, name: remoteSelected.name })}
