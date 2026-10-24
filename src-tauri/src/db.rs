@@ -216,50 +216,6 @@ impl Database {
                 ).ok();
             }
         }
-
-        // Check if gateway telnet test host exists -> seed
-        let gw_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM hosts WHERE hostname = '192.168.10.1' OR id = 'host-gateway-telnet'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        if gw_count == 0 {
-            let now = chrono::Utc::now().to_rfc3339();
-            let tags = serde_json::to_string(&vec!["router".to_string(), "gateway".to_string(), "telnet".to_string()]).unwrap_or_default();
-            conn.execute(
-                r#"
-                INSERT INTO hosts (
-                    id, name, description, hostname, port, username, auth_type,
-                    key_id, group_id, tags_json, timeout_seconds, keepalive_interval,
-                    jump_host_id, proxy_command, identity_file, terminal_theme, font_size, created_at, updated_at, protocol
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
-                "#,
-                params![
-                    "host-gateway-telnet",
-                    "Huawei Gateway (192.168.10.1)",
-                    "Local Huawei Home Gateway router for Telnet testing",
-                    "192.168.10.1",
-                    23,
-                    "admin",
-                    "password",
-                    None::<String>,
-                    Some("grp-infra"),
-                    tags,
-                    15,
-                    30,
-                    None::<String>,
-                    None::<String>,
-                    None::<String>,
-                    "dark",
-                    14,
-                    now,
-                    now,
-                    "telnet"
-                ],
-            ).ok();
-        }
     }
 
     // Hosts
